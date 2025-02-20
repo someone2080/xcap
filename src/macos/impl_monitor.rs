@@ -152,7 +152,6 @@ impl ImplMonitor {
             if unsafe { !CGDisplayIsActive(display_id) } {
                 return Err(XCapError::new("Monitor is not active"));
             }
-            println!("display_id: {}", display_id);
             ImplMonitor::new(display_id)
         } else {
             Err(XCapError::new("Monitor not found"))
