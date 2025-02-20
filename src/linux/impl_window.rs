@@ -38,7 +38,7 @@ fn get_atom(conn: &Connection, name: &str) -> XCapResult<Atom> {
     let atom_reply = conn.wait_for_reply(atom_cookie)?;
     let atom = atom_reply.atom();
 
-    if atom == ATOM_NONE {
+    if atom.is_none() {
         return Err(XCapError::new(format!("{} not supported", name)));
     }
 
@@ -77,6 +77,23 @@ pub fn get_window_pid(conn: &Connection, window: &Window) -> XCapResult<u32> {
         .first()
         .ok_or(XCapError::new("Get window pid failed"))
         .copied()
+}
+
+fn get_active_window_id() -> Option<u32> {
+    let (conn, _) = Connection::connect(None).ok()?;
+    let active_window_atom = get_atom(&conn, "_NET_ACTIVE_WINDOW").ok()?;
+    let setup = conn.get_setup();
+
+    for screen in setup.roots() {
+        let root_window = screen.root();
+        let active_window_id =
+            get_window_property(&conn, root_window, active_window_atom, ATOM_NONE, 0, 4).ok()?;
+        if let Some(&active_window_id) = active_window_id.value::<u32>().first() {
+            return Some(active_window_id);
+        }
+    }
+
+    None
 }
 
 impl ImplWindow {
@@ -198,6 +215,12 @@ impl ImplWindow {
             is_minimized,
             is_maximized,
         })
+    }
+
+    pub fn is_focused(&self) -> bool {
+        let active_window_id = get_active_window_id();
+
+        active_window_id.eq(&Some(self.pid))
     }
 
     pub fn all() -> XCapResult<Vec<ImplWindow>> {
